@@ -22,6 +22,7 @@ export const SettingsForm: React.FC<Props> = ({ settings, onUpdate, onStart }) =
   const [presetName, setPresetName] = useState<string>('');
   const [presetGroup, setPresetGroup] = useState<string>('');
   const [selectedPresetId, setSelectedPresetId] = useState<string>('');
+  const [saveStatus, setSaveStatus] = useState<string>(''); // Visual feedback for save
   
   // Delete Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -74,38 +75,52 @@ export const SettingsForm: React.FC<Props> = ({ settings, onUpdate, onStart }) =
     }
 
     const groupName = presetGroup.trim() || 'Uncategorized';
-
-    const newPreset: Preset = {
-      id: Date.now().toString(),
-      name: presetName.trim(),
-      group: groupName,
-      settings: { ...settings },
-      timestamp: Date.now(),
-    };
+    const targetName = presetName.trim();
 
     let updatedPresets = [...presets];
+    
+    // Check if a preset with this name/group already exists
     const existingIndex = updatedPresets.findIndex(p => 
-      p.name.toLowerCase() === newPreset.name.toLowerCase() && 
+      p.name.toLowerCase() === targetName.toLowerCase() && 
       (p.group || 'Uncategorized').toLowerCase() === groupName.toLowerCase()
     );
 
     if (existingIndex >= 0) {
-      if (!window.confirm(`Preset "${newPreset.name}" in group "${groupName}" already exists. Overwrite?`)) {
-        return;
+      const existingPreset = updatedPresets[existingIndex];
+      
+      // If we are updating the currently loaded preset, proceed without annoying confirmation
+      // If we are overwriting a DIFFERENT preset (name collision), ask for confirmation
+      if (existingPreset.id !== selectedPresetId) {
+         if (!window.confirm(`Preset "${targetName}" in group "${groupName}" already exists. Overwrite?`)) {
+           return;
+         }
       }
+
       updatedPresets[existingIndex] = { 
-        ...updatedPresets[existingIndex], 
-        settings: newPreset.settings, 
+        ...existingPreset, 
+        settings: { ...settings }, 
         timestamp: Date.now() 
       };
-      setSelectedPresetId(updatedPresets[existingIndex].id);
+      setSelectedPresetId(existingPreset.id);
     } else {
+      // Create new preset
+      const newPreset: Preset = {
+        id: Date.now().toString(),
+        name: targetName,
+        group: groupName,
+        settings: { ...settings },
+        timestamp: Date.now(),
+      };
       updatedPresets.push(newPreset);
       setSelectedPresetId(newPreset.id);
     }
 
     setPresets(updatedPresets);
     localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(updatedPresets));
+    
+    // Show temporary success feedback
+    setSaveStatus('Saved!');
+    setTimeout(() => setSaveStatus(''), 2000);
   };
 
   const handleLoadPreset = (id: string) => {
@@ -376,7 +391,7 @@ export const SettingsForm: React.FC<Props> = ({ settings, onUpdate, onStart }) =
               </div>
             </div>
 
-            <div className="flex gap-2 w-full md:w-auto">
+            <div className="flex gap-2 w-full md:w-auto items-center">
               <button 
                 onClick={handleSavePreset}
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded transition shadow-lg shadow-blue-500/20"
@@ -384,6 +399,11 @@ export const SettingsForm: React.FC<Props> = ({ settings, onUpdate, onStart }) =
                 <Save size={16} />
                 Save
               </button>
+               {saveStatus && (
+                  <span className="text-green-400 font-bold text-sm animate-fade-in absolute -mt-10 md:mt-0 md:relative md:ml-0 whitespace-nowrap">
+                    {saveStatus}
+                  </span>
+               )}
               <button 
                 type="button"
                 onClick={handleInitDelete}
