@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { getUsers, saveUser, deleteUser } from '../utils/authUtils';
-import { Users, UserPlus, Edit2, Trash2, X, Shield, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Users, UserPlus, Edit2, Trash2, X, Shield, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
@@ -9,6 +10,9 @@ interface Props {
 
 export const AdminPanel: React.FC<Props> = ({ onClose }) => {
   const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<Partial<User>>({});
   
@@ -21,8 +25,17 @@ export const AdminPanel: React.FC<Props> = ({ onClose }) => {
     refreshUsers();
   }, []);
 
-  const refreshUsers = () => {
-    setUsers(getUsers());
+  const refreshUsers = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getUsers();
+      setUsers(data);
+    } catch (e) {
+      console.error("Failed to fetch users", e);
+      alert("Failed to connect to user database.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEdit = (user: User) => {
@@ -41,16 +54,23 @@ export const AdminPanel: React.FC<Props> = ({ onClose }) => {
     setIsModalOpen(true);
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser.username || !currentUser.password || !currentUser.name) {
       alert("All fields are required");
       return;
     }
-
-    saveUser(currentUser as User);
-    setIsModalOpen(false);
-    refreshUsers();
+    
+    setIsProcessing(true);
+    try {
+      await saveUser(currentUser as User);
+      setIsModalOpen(false);
+      await refreshUsers();
+    } catch (e) {
+      alert("Failed to save user.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleInitDelete = (userId: string) => {
@@ -59,18 +79,21 @@ export const AdminPanel: React.FC<Props> = ({ onClose }) => {
     setShowDeleteModal(true);
   };
 
-  const executeDelete = () => {
+  const executeDelete = async () => {
     if (deleteConfirmationText.toLowerCase().trim() !== 'delete') {
       alert("Please type 'delete' correctly to confirm.");
       return;
     }
 
     if (userToDelete) {
+      setIsProcessing(true);
       try {
-        deleteUser(userToDelete);
-        refreshUsers();
+        await deleteUser(userToDelete);
+        await refreshUsers();
       } catch (e: any) {
         alert(e.message);
+      } finally {
+        setIsProcessing(false);
       }
     }
     
@@ -80,6 +103,17 @@ export const AdminPanel: React.FC<Props> = ({ onClose }) => {
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 h-[90vh] flex flex-col relative">
+      
+      {/* GLOBAL LOADING OVERLAY FOR ACTIONS */}
+      {isProcessing && (
+        <div className="absolute inset-0 z-[70] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center rounded-xl">
+           <div className="bg-slate-800 p-4 rounded shadow-xl border border-slate-700 flex items-center gap-3">
+              <Loader2 className="animate-spin text-cyan-400" />
+              <span className="text-white">Processing Cloud Request...</span>
+           </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-purple-600/20 rounded-lg">
@@ -87,7 +121,7 @@ export const AdminPanel: React.FC<Props> = ({ onClose }) => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">Super Admin Dashboard</h1>
-            <p className="text-slate-400 text-sm">User Management</p>
+            <p className="text-slate-400 text-sm">Cloud User Management</p>
           </div>
         </div>
         <button onClick={onClose} className="p-2 hover:bg-slate-700 rounded-full transition text-slate-400 hover:text-white">
@@ -98,62 +132,74 @@ export const AdminPanel: React.FC<Props> = ({ onClose }) => {
       <div className="mb-6 flex justify-end">
         <button 
           onClick={handleAddNew}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg transition shadow-lg shadow-green-500/20 font-bold"
+          disabled={isLoading}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg transition shadow-lg shadow-green-500/20 font-bold disabled:opacity-50"
         >
           <UserPlus size={20} />
           Add New User
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900/50 rounded-lg border border-slate-700">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-700/50 text-slate-300 text-sm uppercase sticky top-0 backdrop-blur-sm">
-              <th className="p-4">Name</th>
-              <th className="p-4">Username</th>
-              <th className="p-4">Role</th>
-              <th className="p-4">Password</th>
-              <th className="p-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(user => (
-              <tr key={user.id} className="border-b border-slate-700 hover:bg-slate-800/50 transition">
-                <td className="p-4 font-bold text-white flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs ${user.role === UserRole.ADMIN ? 'bg-purple-600' : 'bg-cyan-600'}`}>
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
-                  {user.name}
-                </td>
-                <td className="p-4 text-slate-300 font-mono text-sm">{user.username}</td>
-                <td className="p-4">
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${user.role === UserRole.ADMIN ? 'bg-purple-900/50 text-purple-300 border border-purple-700' : 'bg-cyan-900/50 text-cyan-300 border border-cyan-700'}`}>
-                    {user.role}
-                  </span>
-                </td>
-                <td className="p-4 text-slate-500 font-mono text-sm">••••••</td>
-                <td className="p-4 text-right flex gap-2 justify-end">
-                  <button 
-                    onClick={() => handleEdit(user)}
-                    className="p-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white rounded transition"
-                    title="Edit User"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  {user.username !== 'admin' && (
-                    <button 
-                      onClick={() => handleInitDelete(user.id)}
-                      className="p-2 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded transition"
-                      title="Delete User"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </td>
+      <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900/50 rounded-lg border border-slate-700 relative">
+        {isLoading ? (
+           <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-2">
+              <Loader2 className="animate-spin" size={32} />
+              <span>Loading users from database...</span>
+           </div>
+        ) : users.length === 0 ? (
+           <div className="absolute inset-0 flex items-center justify-center text-slate-500">
+              No users found.
+           </div>
+        ) : (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-700/50 text-slate-300 text-sm uppercase sticky top-0 backdrop-blur-sm">
+                <th className="p-4">Name</th>
+                <th className="p-4">Username</th>
+                <th className="p-4">Role</th>
+                <th className="p-4">Password</th>
+                <th className="p-4 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map(user => (
+                <tr key={user.id} className="border-b border-slate-700 hover:bg-slate-800/50 transition">
+                  <td className="p-4 font-bold text-white flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs ${user.role === UserRole.ADMIN ? 'bg-purple-600' : 'bg-cyan-600'}`}>
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    {user.name}
+                  </td>
+                  <td className="p-4 text-slate-300 font-mono text-sm">{user.username}</td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${user.role === UserRole.ADMIN ? 'bg-purple-900/50 text-purple-300 border border-purple-700' : 'bg-cyan-900/50 text-cyan-300 border border-cyan-700'}`}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="p-4 text-slate-500 font-mono text-sm">••••••</td>
+                  <td className="p-4 text-right flex gap-2 justify-end">
+                    <button 
+                      onClick={() => handleEdit(user)}
+                      className="p-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white rounded transition"
+                      title="Edit User"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    {user.username !== 'admin' && (
+                      <button 
+                        onClick={() => handleInitDelete(user.id)}
+                        className="p-2 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded transition"
+                        title="Delete User"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* EDIT/ADD MODAL */}
@@ -217,10 +263,11 @@ export const AdminPanel: React.FC<Props> = ({ onClose }) => {
                   Cancel
                 </button>
                 <button 
-                  type="submit" 
-                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold transition"
+                  type="submit"
+                  disabled={isProcessing} 
+                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold transition disabled:opacity-50"
                 >
-                  Save User
+                  {isProcessing ? 'Saving...' : 'Save User'}
                 </button>
               </div>
             </form>
@@ -238,7 +285,7 @@ export const AdminPanel: React.FC<Props> = ({ onClose }) => {
             </div>
             
             <p className="text-slate-300 mb-4 text-sm">
-              This will permanently delete the user account. To confirm, please type <span className="font-mono font-bold text-white bg-slate-700 px-1 rounded">delete</span> below.
+              This will permanently delete the user account from the cloud database. To confirm, please type <span className="font-mono font-bold text-white bg-slate-700 px-1 rounded">delete</span> below.
             </p>
 
             <input
@@ -259,9 +306,10 @@ export const AdminPanel: React.FC<Props> = ({ onClose }) => {
               </button>
               <button 
                 onClick={executeDelete}
-                className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 text-white font-bold transition flex items-center gap-2"
+                disabled={isProcessing}
+                className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 text-white font-bold transition flex items-center gap-2 disabled:opacity-50"
               >
-                <Trash2 size={16} />
+                {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
                 Confirm Delete
               </button>
             </div>

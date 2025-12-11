@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppStatus, CalculationMode, Settings, FlashState, FontSize, FontType, SoundType, User, UserRole } from './types';
 import { generateQuestionSet } from './utils/mathUtils';
@@ -57,10 +58,10 @@ const App: React.FC = () => {
 
   // Initialize things on mount
   useEffect(() => {
-    // 1. Initialize Users (create super admin if needed)
+    // 1. Initialize Users (Async)
     initUsers();
     
-    // 2. Check for logged in user
+    // 2. Check for logged in user (Sync session check, usually done via token)
     const user = getCurrentUser();
     if (user) {
       setCurrentUser(user);
