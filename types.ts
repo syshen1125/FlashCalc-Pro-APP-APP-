@@ -73,3 +73,19 @@ export interface FlashState {
   currentDisplayValue: number | null; // Null implies blank screen interval if we implemented blink, but here we swap numbers
   questions: QuestionData[];
 }
+
+// --- AUTH TYPES ---
+
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  USER = 'USER'
+}
+
+export interface User {
+  id: string;
+  username: string;
+  password: string; // Plaintext for this local-only demo
+  name: string;
+  role: UserRole;
+  createdAt: number;
+}

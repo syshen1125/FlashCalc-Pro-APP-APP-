@@ -1,12 +1,14 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AppStatus, CalculationMode, Settings, FlashState, FontSize, FontType, SoundType } from './types';
+import { AppStatus, CalculationMode, Settings, FlashState, FontSize, FontType, SoundType, User, UserRole } from './types';
 import { generateQuestionSet } from './utils/mathUtils';
 import { playBeep, initAudio, speakText, stopSpeech } from './utils/sound';
 import { loadCustomFontFromStorage } from './utils/fontUtils';
+import { initUsers, getCurrentUser, logoutUser } from './utils/authUtils';
 import { SettingsForm } from './components/SettingsForm';
 import { FlashScreen } from './components/FlashScreen';
 import { HistoryTable } from './components/HistoryTable';
+import { LoginPage } from './components/LoginPage';
+import { AdminPanel } from './components/AdminPanel';
 import { Timer, XCircle } from 'lucide-react';
 
 // Default settings
@@ -28,6 +30,11 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 const App: React.FC = () => {
+  // Auth State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+
+  // App State
   const [status, setStatus] = useState<AppStatus>(AppStatus.SETUP);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   
@@ -50,9 +57,29 @@ const App: React.FC = () => {
 
   // Initialize things on mount
   useEffect(() => {
-    // Attempt to load custom font if it exists in storage
+    // 1. Initialize Users (create super admin if needed)
+    initUsers();
+    
+    // 2. Check for logged in user
+    const user = getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+    }
+
+    // 3. Load Fonts
     loadCustomFontFromStorage();
   }, []);
+
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    logoutUser();
+    setCurrentUser(null);
+    setShowAdminPanel(false);
+    handleReset();
+  };
 
   // Start the session
   const handleStart = () => {
@@ -266,8 +293,28 @@ const App: React.FC = () => {
 
   // --- Render ---
 
+  // 1. Not Logged In -> Show Login Page
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // 2. Admin Panel Overlay
+  if (showAdminPanel) {
+    return <AdminPanel onClose={() => setShowAdminPanel(false)} />;
+  }
+
+  // 3. Main App Flow
   if (status === AppStatus.SETUP) {
-    return <SettingsForm settings={settings} onUpdate={setSettings} onStart={handleStart} />;
+    return (
+      <SettingsForm 
+        settings={settings} 
+        onUpdate={setSettings} 
+        onStart={handleStart} 
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onOpenAdmin={() => setShowAdminPanel(true)}
+      />
+    );
   }
 
   if (status === AppStatus.FINISHED) {

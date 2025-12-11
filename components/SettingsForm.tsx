@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { CalculationMode, Settings, FontSize, FontType, SoundType, Preset } from '../types';
-import { Play, Type, Upload, Check, Volume2, Music, Clock, Mic, Save, Trash2, FolderOpen, AlertTriangle, Layers } from 'lucide-react';
+import { CalculationMode, Settings, FontSize, FontType, SoundType, Preset, User, UserRole } from '../types';
+import { Play, Type, Upload, Check, Volume2, Music, Clock, Mic, Save, Trash2, FolderOpen, AlertTriangle, Layers, LogOut, Shield } from 'lucide-react';
 import { injectCustomFont, getCustomFontName, STORAGE_KEY_DATA, STORAGE_KEY_NAME } from '../utils/fontUtils';
 import { playBeep } from '../utils/sound';
 
@@ -9,11 +8,14 @@ interface Props {
   settings: Settings;
   onUpdate: (s: Settings) => void;
   onStart: () => void;
+  currentUser: User | null;
+  onLogout: () => void;
+  onOpenAdmin: () => void;
 }
 
 const PRESETS_STORAGE_KEY = 'flashCalcPresets';
 
-export const SettingsForm: React.FC<Props> = ({ settings, onUpdate, onStart }) => {
+export const SettingsForm: React.FC<Props> = ({ settings, onUpdate, onStart, currentUser, onLogout, onOpenAdmin }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [customFontName, setCustomFontName] = useState<string | null>(null);
   
@@ -313,15 +315,44 @@ export const SettingsForm: React.FC<Props> = ({ settings, onUpdate, onStart }) =
           <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
             珠心算闪算系统
           </h1>
-          <p className="text-slate-400 text-sm mt-1">Professional Flash Calculation</p>
+          <div className="flex items-center gap-3 mt-1">
+             <span className="text-slate-400 text-sm">Professional Flash Calculation</span>
+             {currentUser && (
+               <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-cyan-300 border border-slate-600">
+                 Logged in as: <strong>{currentUser.username}</strong>
+               </span>
+             )}
+          </div>
         </div>
-        <button
-          onClick={onStart}
-          className="w-full md:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold py-3 px-8 rounded-lg transform transition active:scale-95 shadow-lg shadow-green-500/20"
-        >
-          <Play size={24} fill="currentColor" />
-          START
-        </button>
+        
+        <div className="flex gap-3 items-center w-full md:w-auto">
+          {currentUser?.role === UserRole.ADMIN && (
+             <button
+              onClick={onOpenAdmin}
+              className="flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white px-4 py-2 rounded-lg transition border border-purple-500/30"
+              title="Admin Panel"
+            >
+              <Shield size={18} />
+              <span className="hidden sm:inline">Users</span>
+            </button>
+          )}
+
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition"
+            title="Logout"
+          >
+            <LogOut size={18} />
+          </button>
+
+          <button
+            onClick={onStart}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold py-2 px-8 rounded-lg transform transition active:scale-95 shadow-lg shadow-green-500/20"
+          >
+            <Play size={24} fill="currentColor" />
+            START
+          </button>
+        </div>
       </div>
 
       {/* PRESETS SECTION */}
