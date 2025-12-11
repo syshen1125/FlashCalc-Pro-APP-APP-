@@ -1,0 +1,5 @@
+{
+  "name": "FlashCalc Pro APP(珠心算闪算APP)",
+  "description": "A professional Mental Abacus Flash Calculation system. Features configurable digit ranges, speed (0.1s-3.0s), mixed operations, and auto-advancing questions with answer reveal.",
+  "requestFramePermissions": []
+}
